@@ -404,14 +404,60 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errEl) errEl.textContent = '';
     }
 
-    // Empannel button → go straight to Welcome Back page
+    // Empannel button → load apps from DB then open page
     const empannelBtn = document.getElementById('empannelBtn');
     if (empannelBtn) {
-        empannelBtn.addEventListener('click', (e) => {
+        empannelBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopImmediatePropagation();
             openPage(empannelPage);
+            await loadEmpanelApps();
         });
+    }
+
+    // Load empanel applications from Supabase
+    async function loadEmpanelApps() {
+        const container = document.getElementById('empannelAppsList');
+        if (!container || !supabaseClient) return;
+
+        container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:20px;">Loading applications...</p>';
+
+        const { data: apps, error } = await supabaseClient
+            .from('home_loan_applications')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error || !apps || apps.length === 0) {
+            container.innerHTML = '<p style="text-align:center;color:#94a3b8;padding:20px;">No applications found. Start a new empanelment below!</p>';
+            return;
+        }
+
+        container.innerHTML = apps.map(app => {
+            const statusMap = {
+                'pending': { icon: '&#9679;', text: 'Under Review', cls: '' },
+                'approved': { icon: '&#10003;', text: 'Approved', cls: 'style="background:#ecfdf5;color:#059669;border-color:#6ee7b7;"' },
+                'sent_back': { icon: '&#8617;', text: 'Sent Back', cls: 'style="background:#fef2f2;color:#dc2626;border-color:#fca5a5;"' }
+            };
+            const st = statusMap[app.status] || statusMap['pending'];
+            const date = app.created_at ? app.created_at.split('T')[0] : '-';
+            return `
+                <div class="empannel-app-card" style="cursor:default;margin-bottom:10px;">
+                    <div class="empannel-app-header">
+                        <div class="empannel-app-info">
+                            <div class="empannel-app-icon">&#128203;</div>
+                            <div>
+                                <div class="empannel-app-name">${app.name}</div>
+                                <div class="empannel-app-id">${app.app_id}</div>
+                            </div>
+                        </div>
+                        <span class="empannel-status-badge" ${st.cls}>${st.icon} ${st.text}</span>
+                    </div>
+                    <div class="empannel-app-footer">
+                        <span class="empannel-app-date">Submitted ${date}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     // Login button → open login modal directly to form
@@ -643,14 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-
-    // Empannel page actions
-    const empannelViewDetails = document.getElementById('empannelViewDetails');
-    if (empannelViewDetails) {
-        empannelViewDetails.addEventListener('click', () => {
-            alert('Viewing application details for NC-CON-2026-48231');
-        });
-    }
 
     const empannelNewBtn = document.getElementById('empannelNewBtn');
     const empanelFormPage = document.getElementById('empanelFormPage');
